@@ -1,127 +1,217 @@
 // ================== CONFIG ==================
-const SHEETS = ["Users", "Contributions", "Penalties", "Loans"];
+const API = "YOUR_NEW_DEPLOYED_SCRIPT_URL";
+let chart;
+let memberChart;
 
-// ================== DO GET ==================
-function doGet(e) {
-  return ContentService.createTextOutput("API is running. Use POST requests for data.")
-    .setMimeType(ContentService.MimeType.TEXT);
-}
+// ================== LOGIN CHECK ==================
+const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+if (!currentUser) {
+  alert('Please login first');
+  window.location.href = 'index.html';
+} else {
+  const userRoleEl = document.getElementById('userRole');
+  if (userRoleEl) userRoleEl.innerText = `Welcome, ${currentUser.email} (${currentUser.role})`;
 
-// ================== DO POST ==================
-function doPost(e) {
-  try {
-    const params = JSON.parse(e.postData.contents);
-    const sheetName = params.sheet;
-    const action = params.action;
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) return jsonResponse({ success: false, message: "Sheet does not exist" });
-
-    switch (action) {
-      case "list":
-        return listItems(sheet);
-      case "add":
-        return addItem(sheet, params);
-      case "update":
-        return updateItem(sheet, params);
-      case "register":
-        return registerUser(sheet, params);
-      case "login":
-        return loginUser(sheet, params);
-      default:
-        return jsonResponse({ success: false, message: "Action not recognized" });
-    }
-
-  } catch (err) {
-    return jsonResponse({ success: false, message: err.toString() });
+  if (currentUser.role !== 'admin') {
+    const adminSection = document.getElementById('adminSection');
+    if (adminSection) adminSection.style.display = 'none';
   }
 }
 
-// ================== LIST ITEMS ==================
-function listItems(sheet) {
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift() || [];
-  const items = data.map(row => {
-    let obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
+// ================== HELPER FUNCTIONS ==================
+async function fetchSheet(sheet) {
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      body: JSON.stringify({ sheet, action: "list" })
+    });
+    const data = await res.json();
+    return Array.isArray(data.items) ? data.items : [];
+  } catch (err) {
+    console.error(`Failed to fetch sheet: ${sheet}`, err);
+    return [];
+  }
+}
+
+async function addSheetItem(sheet, obj) {
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      body: JSON.stringify({ sheet, action: "add", ...obj })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error(`Failed to add item to sheet: ${sheet}`, err);
+    return { success: false, message: "Network or API error" };
+  }
+}
+
+// ================== MEMBERS ==================
+async function populateMembers() {
+  const users = await fetchSheet("Users");
+  const members = Array.isArray(users) ? users.filter(u => u?.role === "member") : [];
+
+  const select = document.getElementById('memberSelect');
+  const loanSelect = document.getElementById('loanEmail');
+  if (!select || !loanSelect) return;
+
+  select.innerHTML = '<option value="">Select Member</option>';
+  loanSelect.innerHTML = '<option value="">Select Member</option>';
+
+  members.forEach(m => {
+    const opt1 = document.createElement('option');
+    opt1.value = m.email;
+    opt1.innerText = m.email;
+    select.appendChild(opt1);
+
+    const opt2 = document.createElement('option');
+    opt2.value = m.email;
+    opt2.innerText = m.email;
+    loanSelect.appendChild(opt2);
   });
-  return jsonResponse({ success: true, items });
 }
 
-// ================== ADD ITEM ==================
-function addItem(sheet, obj) {
-  const headers = sheet.getDataRange().getValues()[0] || [];
-  let row = headers.map(h => obj[h] || "");
-  sheet.appendRow(row);
-  return jsonResponse({ success: true });
+// ================== CONTRIBUTIONS ==================
+async function addContribution() {
+  const email = document.getElementById('memberEmail')?.value;
+  const amount = Number(document.getElementById('amount')?.value);
+  if (!email || !amount || amount <= 0) {
+    alert('Fill fields correctly');
+    return;
+  }
+
+  const res = await addSheetItem("Contributions", { email, amount, date: new Date().toISOString() });
+  if (res.success) {
+    alert("Contribution added!");
+    updateSummary();
+    populateMembers();
+    drawMemberTrend();
+  } else alert(res.message || "Failed to add contribution");
 }
 
-// ================== UPDATE ITEM ==================
-function updateItem(sheet, obj) {
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  if (!headers.includes("id")) return jsonResponse({ success: false, message: "No 'id' column in sheet" });
+// ================== PENALTIES ==================
+async function calculatePenalties() {
+  const users = await fetchSheet("Users") || [];
+  const contributions = await fetchSheet("Contributions") || [];
+  const penalties = await fetchSheet("Penalties") || [];
 
-  const idIndex = headers.indexOf("id");
-  let found = false;
+  const members = users.filter(u => u?.role === 'member');
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
 
-  data.forEach((row, rIdx) => {
-    if (row[idIndex] == obj.id) {
-      headers.forEach((h, cIdx) => {
-        if (obj[h] !== undefined) row[cIdx] = obj[h];
-      });
-      sheet.getRange(rIdx + 2, 1, 1, row.length).setValues([row]);
-      found = true;
+  for (const m of members) {
+    const paid = contributions.some(c => c?.email && c.email === m.email && new Date(c.date)?.getMonth() + 1 === month && new Date(c.date)?.getFullYear() === year);
+    const alreadyPenalized = penalties.some(p => p?.email && p.email === m.email && p.month == month && p.year == year);
+
+    if (!paid && !alreadyPenalized) {
+      await addSheetItem("Penalties", { email: m.email, amount: 100, month, year, reason: "Missed contribution" });
+    }
+  }
+
+  alert("Penalties applied");
+  updateSummary();
+}
+
+// ================== SUMMARY ==================
+async function updateSummary() {
+  const users = await fetchSheet("Users") || [];
+  const members = users.filter(u => u?.role === 'member');
+  const contributions = await fetchSheet("Contributions") || [];
+  const penalties = await fetchSheet("Penalties") || [];
+
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  const totalC = contributions
+    .filter(c => c?.date && new Date(c.date)?.getMonth() + 1 === month && new Date(c.date)?.getFullYear() === year)
+    .reduce((a, b) => a + Number(b.amount || 0), 0);
+
+  const totalP = penalties
+    .filter(p => p?.month === month && p?.year === year)
+    .reduce((a, b) => a + Number(b.amount || 0), 0);
+
+  const contribEl = document.getElementById('cardTotalContributions');
+  const penaltyEl = document.getElementById('cardTotalPenalties');
+  const missedEl = document.getElementById('cardMissedMembers');
+
+  if (contribEl) contribEl.innerText = `KES ${totalC}`;
+  if (penaltyEl) penaltyEl.innerText = `KES ${totalP}`;
+
+  const missedList = document.getElementById('missedList');
+  if (!missedList) return;
+  missedList.innerHTML = '';
+  let missed = 0;
+
+  for (const m of members) {
+    const paid = contributions.some(c => c?.email && c.email === m.email && new Date(c.date)?.getMonth() + 1 === month && new Date(c.date)?.getFullYear() === year);
+    if (!paid) {
+      missed++;
+      const li = document.createElement('li');
+      li.style.color = '#ff5722';
+      li.style.fontWeight = 'bold';
+      li.innerText = `${m.email} has not contributed this month!`;
+      missedList.appendChild(li);
+    }
+  }
+
+  if (missed === 0) {
+    const li = document.createElement('li');
+    li.style.color = '#4caf50';
+    li.style.fontWeight = 'bold';
+    li.innerText = 'All members have contributed this month ✅';
+    missedList.appendChild(li);
+  }
+
+  if (missedEl) missedEl.innerText = missed;
+}
+
+// ================== MEMBER TREND CHART ==================
+async function drawMemberTrend() {
+  const emailEl = document.getElementById('memberSelect');
+  if (!emailEl) return;
+  const email = emailEl.value;
+  if (!email) return;
+
+  const contributions = await fetchSheet("Contributions") || [];
+  const dataArr = Array(12).fill(0);
+  const year = new Date().getFullYear();
+
+  contributions.forEach(c => {
+    if (!c) return;
+    const d = new Date(c.date);
+    if (c.email === email && d.getFullYear() === year) dataArr[d.getMonth()] += Number(c.amount || 0);
+  });
+
+  const ctx = document.getElementById('memberChart')?.getContext('2d');
+  if (!ctx) return;
+  if (memberChart) memberChart.destroy();
+
+  memberChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+      datasets:[{
+        label:`${email} Contribution`,
+        data:dataArr,
+        borderColor:'rgba(255,193,7,1)',
+        backgroundColor:'rgba(255,193,7,0.2)',
+        fill:true,
+        tension:0.3
+      }]
+    },
+    options:{
+      plugins:{title:{display:true,text:`Contribution Trend for ${email}`}},
+      animation:{duration:1200,easing:'easeOutQuart'}
     }
   });
-
-  if (found) return jsonResponse({ success: true });
-  else return jsonResponse({ success: false, message: "Item with that ID not found" });
 }
 
-// ================== REGISTER USER ==================
-function registerUser(sheet, params) {
-  const { email, password, role } = params;
-  if (!email || !password || !role) return jsonResponse({ success: false, message: "All fields required" });
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  const emailIndex = headers.indexOf("email");
-
-  const exists = data.some(row => row[emailIndex] === email);
-  if (exists) return jsonResponse({ success: false, message: "User already exists" });
-
-  let row = headers.map(h => {
-    if (h === "email") return email;
-    if (h === "password") return password;
-    if (h === "role") return role;
-    return "";
-  });
-  sheet.appendRow(row);
-  return jsonResponse({ success: true });
-}
-
-// ================== LOGIN USER ==================
-function loginUser(sheet, params) {
-  const { email, password } = params;
-  if (!email || !password) return jsonResponse({ success: false, message: "Email and password required" });
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  const emailIndex = headers.indexOf("email");
-  const passwordIndex = headers.indexOf("password");
-  const roleIndex = headers.indexOf("role");
-
-  const userRow = data.find(row => row[emailIndex] === email && row[passwordIndex] === password);
-  if (!userRow) return jsonResponse({ success: false, message: "Invalid login credentials" });
-
-  return jsonResponse({ success: true, role: userRow[roleIndex] });
-}
-
-// ================== JSON RESPONSE HELPER ==================
-function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+// ================== INIT ==================
+window.onload = function() {
+  populateMembers();
+  updateSummary();
+  drawMemberTrend();
+};
