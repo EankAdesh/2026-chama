@@ -1,5 +1,5 @@
 // Google Apps Script Web App URL
-const API = "https://script.google.com/macros/s/AKfycbzT4WoXTksqitPCep2ohxQMVu78G4qgYG56ArgU8d980DoQvTPrGFcs14Kdwea6chnf9A/exec";
+const API = "https://script.google.com/macros/s/AKfycbwLsl-rkY_bkde91Ix5iVJw46o8o5Z79blidbdIh4g9ANYcrJZQlKRmHK1WxiLAWYbYkw/exec";
 
 // ===== REGISTER =====
 function register() {
@@ -14,13 +14,7 @@ function register() {
 
   fetch(API, {
     method: "POST",
-    body: JSON.stringify({
-      sheet: "Users",
-      action: "register",
-      email,
-      password,
-      role
-    })
+    body: JSON.stringify({ sheet: "Users", action: "register", email, password, role })
   })
   .then(res => res.json())
   .then(data => {
@@ -47,12 +41,7 @@ function login() {
 
   fetch(API, {
     method: "POST",
-    body: JSON.stringify({
-      sheet: "Users",
-      action: "login",
-      email,
-      password
-    })
+    body: JSON.stringify({ sheet: "Users", action: "login", email, password })
   })
   .then(res => res.json())
   .then(data => {
@@ -60,7 +49,7 @@ function login() {
       localStorage.setItem("currentUser", JSON.stringify({ email, role: data.role }));
       window.location.href = "dashboard.html";
     } else {
-      alert("Invalid login credentials");
+      alert(data.message || "Invalid login credentials");
     }
   })
   .catch(err => alert("Error: " + err));
