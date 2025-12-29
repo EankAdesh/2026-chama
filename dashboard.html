@@ -64,7 +64,7 @@
     <!-- Request Loan (Member Only) -->
     <div id="requestLoan" class="section">
       <h4>Request a Loan</h4>
-      <select id="loanMemberEmail">
+      <select id="loanEmail">
         <option value="">Select Member</option>
       </select>
       <input id="loanAmount" type="number" placeholder="Amount">
@@ -75,7 +75,7 @@
     <!-- Loan List (Admin Only) -->
     <div id="loanListSection" class="section">
       <h4>Loans</h4>
-      <ul id="loanList"></ul>
+      <table id="loansTable"></table>
     </div>
   </div>
 
@@ -106,5 +106,14 @@
 </div>
 
 <script src="js/dashboard.js"></script>
+<script>
+  // Hide Request Loan section for admin
+  const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+  if(currentUser && currentUser.role === "admin") {
+    const requestLoan = document.getElementById('requestLoan');
+    if(requestLoan) requestLoan.style.display = 'none';
+  }
+</script>
 </body>
 </html>
+
