@@ -1,5 +1,5 @@
 // ================== CONFIG ==================
-const API = "https://script.google.com/macros/s/AKfycbwLsl-rkY_bkde91Ix5iVJw46o8o5Z79blidbdIh4g9ANYcrJZQlKRmHK1WxiLAWYbYkw/exec";
+const API = "https://script.google.com/macros/s/AKfycby65QtyNl1PV0k0R_dk3bg17S5kCa9tiWmyl7C2eOSJBU_a1Gzg2k7tbet2m8YTu9aKlw/exec";
 let chart;
 let memberChart;
 
@@ -92,9 +92,9 @@ async function addContribution() {
 
 // ================== PENALTIES ==================
 async function calculatePenalties() {
-  const users = await fetchSheet("Users");
-  const contributions = await fetchSheet("Contributions");
-  const penalties = await fetchSheet("Penalties");
+  const users = await fetchSheet("Users") || [];
+  const contributions = await fetchSheet("Contributions") || [];
+  const penalties = await fetchSheet("Penalties") || [];
 
   const members = users.filter(u => u.role === 'member');
   const now = new Date();
@@ -116,10 +116,10 @@ async function calculatePenalties() {
 
 // ================== SUMMARY ==================
 async function updateSummary() {
-  const users = await fetchSheet("Users");
+  const users = await fetchSheet("Users") || [];
   const members = users.filter(u => u.role === 'member');
-  const contributions = await fetchSheet("Contributions");
-  const penalties = await fetchSheet("Penalties");
+  const contributions = await fetchSheet("Contributions") || [];
+  const penalties = await fetchSheet("Penalties") || [];
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -175,7 +175,7 @@ async function drawMemberTrend() {
   const email = emailEl.value;
   if (!email) return;
 
-  const contributions = await fetchSheet("Contributions");
+  const contributions = await fetchSheet("Contributions") || [];
   const dataArr = Array(12).fill(0);
   const year = new Date().getFullYear();
 
