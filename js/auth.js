@@ -1,59 +1,73 @@
-// Get saved users from localStorage
-function getUsers(){
-  return JSON.parse(localStorage.getItem('users')||'[]');
-}
+// Google Apps Script Web App URL
+const API = "https://script.google.com/macros/s/AKfycbzT4WoXTksqitPCep2ohxQMVu78G4qgYG56ArgU8d980DoQvTPrGFcs14Kdwea6chnf9A/exec";
 
-// Save users to localStorage
-function saveUsers(users){
-  localStorage.setItem('users', JSON.stringify(users));
-}
-
-// Register new user
-function register(){
+// ===== REGISTER =====
+function register() {
   const email = document.getElementById('regEmail').value.trim();
-  const pass = document.getElementById('regPassword').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
   const role = document.getElementById('role').value;
 
-  if(!email || !pass){
-    alert('Email and password are required');
+  if (!email || !password) {
+    alert("Email and password are required");
     return;
   }
 
-  const users = getUsers();
-  if(users.find(u=>u.email.toLowerCase()===email.toLowerCase())){
-    alert('User already exists');
-    return;
-  }
-
-  users.push({email, password:pass, role});
-  saveUsers(users);
-  alert('Registered! Now login.');
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      sheet: "Users",
+      action: "register",
+      email,
+      password,
+      role
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert("Registered successfully! Please login.");
+      document.getElementById('regEmail').value = "";
+      document.getElementById('regPassword').value = "";
+    } else {
+      alert(data.message || "Registration failed");
+    }
+  })
+  .catch(err => alert("Error: " + err));
 }
 
-// Login user
-function login(){
+// ===== LOGIN =====
+function login() {
   const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPassword').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
 
-  if(!email || !pass){
-    alert('Email and password are required');
+  if (!email || !password) {
+    alert("Email and password are required");
     return;
   }
 
-  const users = getUsers();
-  const user = users.find(u => u.email.toLowerCase()===email.toLowerCase() && u.password===pass);
-
-  if(!user){
-    alert('Invalid login');
-    return;
-  }
-
-  localStorage.setItem('currentUser', JSON.stringify(user));
-  window.location.href='dashboard.html';
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      sheet: "Users",
+      action: "login",
+      email,
+      password
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      localStorage.setItem("currentUser", JSON.stringify({ email, role: data.role }));
+      window.location.href = "dashboard.html";
+    } else {
+      alert("Invalid login credentials");
+    }
+  })
+  .catch(err => alert("Error: " + err));
 }
 
-// Logout user
-function logout(){
-  localStorage.removeItem('currentUser');
-  window.location.href='index.html';
+// ===== LOGOUT =====
+function logout() {
+  localStorage.removeItem("currentUser");
+  window.location.href = "index.html";
 }
