@@ -1,176 +1,127 @@
 // ================== CONFIG ==================
-const API = "https://script.google.com/macros/s/AKfycbwLsl-rkY_bkde91Ix5iVJw46o8o5Z79blidbdIh4g9ANYcrJZQlKRmHK1WxiLAWYbYkw/exec";
-let chart;
-let memberChart;
+const SHEETS = ["Users", "Contributions", "Penalties", "Loans"];
 
-// ================== LOGIN CHECK ==================
-const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-if (!currentUser) {
-  alert('Please login first');
-  window.location.href = 'index.html';
-} else {
-  const userRoleEl = document.getElementById('userRole');
-  if (userRoleEl) userRoleEl.innerText = `Welcome, ${currentUser.email} (${currentUser.role})`;
-
-  if (currentUser.role !== 'admin') {
-    const adminSection = document.getElementById('adminSection');
-    if (adminSection) adminSection.style.display = 'none';
-  }
+// ================== DO GET ==================
+function doGet(e) {
+  return ContentService.createTextOutput("API is running. Use POST requests for data.")
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
-// ================== HELPER FUNCTIONS ==================
-async function fetchSheet(sheet) {
+// ================== DO POST ==================
+function doPost(e) {
   try {
-    const res = await fetch(API, {
-      method: "POST",
-      body: JSON.stringify({ sheet, action: "list" })
-    });
-    const data = await res.json();
-    return Array.isArray(data.items) ? data.items : [];
+    const params = JSON.parse(e.postData.contents);
+    const sheetName = params.sheet;
+    const action = params.action;
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return jsonResponse({ success: false, message: "Sheet does not exist" });
+
+    switch (action) {
+      case "list":
+        return listItems(sheet);
+      case "add":
+        return addItem(sheet, params);
+      case "update":
+        return updateItem(sheet, params);
+      case "register":
+        return registerUser(sheet, params);
+      case "login":
+        return loginUser(sheet, params);
+      default:
+        return jsonResponse({ success: false, message: "Action not recognized" });
+    }
+
   } catch (err) {
-    console.error(`Failed to fetch sheet: ${sheet}`, err);
-    return [];
+    return jsonResponse({ success: false, message: err.toString() });
   }
 }
 
-async function addSheetItem(sheet, obj) {
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      body: JSON.stringify({ sheet, action: "add", ...obj })
-    });
-    const data = await res.json();
-    return data;
-  } catch (err) {
-    console.error(`Failed to add item to sheet: ${sheet}`, err);
-    return { success: false, message: "Network or API error" };
-  }
-}
-
-// ================== MEMBERS ==================
-async function populateMembers() {
-  const users = await fetchSheet("Users");
-  const members = Array.isArray(users) ? users.filter(u => u && u.role === "member") : [];
-
-  const select = document.getElementById('memberSelect');
-  const loanSelect = document.getElementById('loanEmail');
-  if (!select || !loanSelect) return;
-
-  select.innerHTML = '<option value="">Select Member</option>';
-  loanSelect.innerHTML = '<option value="">Select Member</option>';
-
-  members.forEach(m => {
-    if (!m || !m.email) return;
-    const opt1 = document.createElement('option');
-    opt1.value = m.email;
-    opt1.innerText = m.email;
-    select.appendChild(opt1);
-
-    const opt2 = document.createElement('option');
-    opt2.value = m.email;
-    opt2.innerText = m.email;
-    loanSelect.appendChild(opt2);
+// ================== LIST ITEMS ==================
+function listItems(sheet) {
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift() || [];
+  const items = data.map(row => {
+    let obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
   });
+  return jsonResponse({ success: true, items });
 }
 
-// ================== CONTRIBUTIONS ==================
-async function addContribution() {
-  const email = document.getElementById('memberEmail')?.value;
-  const amount = Number(document.getElementById('amount')?.value);
-  if (!email || !amount || amount <= 0) {
-    alert('Fill fields correctly');
-    return;
-  }
-
-  const res = await addSheetItem("Contributions", { email, amount, date: new Date().toISOString() });
-  if (res.success) {
-    alert("Contribution added!");
-    updateSummary();
-    populateMembers();
-    drawMemberTrend();
-  } else alert(res.message || "Failed to add contribution");
+// ================== ADD ITEM ==================
+function addItem(sheet, obj) {
+  const headers = sheet.getDataRange().getValues()[0] || [];
+  let row = headers.map(h => obj[h] || "");
+  sheet.appendRow(row);
+  return jsonResponse({ success: true });
 }
 
-// ================== PENALTIES ==================
-async function calculatePenalties() {
-  const users = await fetchSheet("Users");
-  const contributions = await fetchSheet("Contributions");
-  const penalties = await fetchSheet("Penalties");
+// ================== UPDATE ITEM ==================
+function updateItem(sheet, obj) {
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  if (!headers.includes("id")) return jsonResponse({ success: false, message: "No 'id' column in sheet" });
 
-  const members = Array.isArray(users) ? users.filter(u => u && u.role === 'member') : [];
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const idIndex = headers.indexOf("id");
+  let found = false;
 
-  for (const m of members) {
-    const paid = Array.isArray(contributions) && contributions.some(c => c && c.email === m.email && c.date && new Date(c.date).getMonth() + 1 === month && new Date(c.date).getFullYear() === year);
-    const alreadyPenalized = Array.isArray(penalties) && penalties.some(p => p && p.email === m.email && p.month == month && p.year == year);
-
-    if (!paid && !alreadyPenalized) {
-      await addSheetItem("Penalties", { email: m.email, amount: 100, month, year, reason: "Missed contribution" });
+  data.forEach((row, rIdx) => {
+    if (row[idIndex] == obj.id) {
+      headers.forEach((h, cIdx) => {
+        if (obj[h] !== undefined) row[cIdx] = obj[h];
+      });
+      sheet.getRange(rIdx + 2, 1, 1, row.length).setValues([row]);
+      found = true;
     }
-  }
+  });
 
-  alert("Penalties applied");
-  updateSummary();
+  if (found) return jsonResponse({ success: true });
+  else return jsonResponse({ success: false, message: "Item with that ID not found" });
 }
 
-// ================== SUMMARY ==================
-async function updateSummary() {
-  const users = await fetchSheet("Users");
-  const members = Array.isArray(users) ? users.filter(u => u && u.role === 'member') : [];
-  const contributions = await fetchSheet("Contributions") || [];
-  const penalties = await fetchSheet("Penalties") || [];
+// ================== REGISTER USER ==================
+function registerUser(sheet, params) {
+  const { email, password, role } = params;
+  if (!email || !password || !role) return jsonResponse({ success: false, message: "All fields required" });
 
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const emailIndex = headers.indexOf("email");
 
-  const totalC = contributions
-    .filter(c => c && c.date && new Date(c.date).getMonth() + 1 === month && new Date(c.date).getFullYear() === year)
-    .reduce((a, b) => a + Number(b.amount || 0), 0);
+  const exists = data.some(row => row[emailIndex] === email);
+  if (exists) return jsonResponse({ success: false, message: "User already exists" });
 
-  const totalP = penalties
-    .filter(p => p && p.month === month && p.year === year)
-    .reduce((a, b) => a + Number(b.amount || 0), 0);
-
-  const contribEl = document.getElementById('cardTotalContributions');
-  const penaltyEl = document.getElementById('cardTotalPenalties');
-  const missedEl = document.getElementById('cardMissedMembers');
-
-  if (contribEl) contribEl.innerText = `KES ${totalC}`;
-  if (penaltyEl) penaltyEl.innerText = `KES ${totalP}`;
-
-  const missedList = document.getElementById('missedList');
-  if (!missedList) return;
-  missedList.innerHTML = '';
-  let missed = 0;
-
-  for (const m of members) {
-    const paid = contributions.some(c => c && c.email === m.email && c.date && new Date(c.date).getMonth() + 1 === month && new Date(c.date).getFullYear() === year);
-    if (!paid) {
-      missed++;
-      const li = document.createElement('li');
-      li.style.color = '#ff5722';
-      li.style.fontWeight = 'bold';
-      li.innerText = `${m.email} has not contributed this month!`;
-      missedList.appendChild(li);
-    }
-  }
-
-  if (missed === 0) {
-    const li = document.createElement('li');
-    li.style.color = '#4caf50';
-    li.style.fontWeight = 'bold';
-    li.innerText = 'All members have contributed this month ✅';
-    missedList.appendChild(li);
-  }
-
-  if (missedEl) missedEl.innerText = missed;
+  let row = headers.map(h => {
+    if (h === "email") return email;
+    if (h === "password") return password;
+    if (h === "role") return role;
+    return "";
+  });
+  sheet.appendRow(row);
+  return jsonResponse({ success: true });
 }
 
-// ================== INIT ==================
-window.onload = function () {
-  populateMembers();
-  updateSummary();
-};
+// ================== LOGIN USER ==================
+function loginUser(sheet, params) {
+  const { email, password } = params;
+  if (!email || !password) return jsonResponse({ success: false, message: "Email and password required" });
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const emailIndex = headers.indexOf("email");
+  const passwordIndex = headers.indexOf("password");
+  const roleIndex = headers.indexOf("role");
+
+  const userRow = data.find(row => row[emailIndex] === email && row[passwordIndex] === password);
+  if (!userRow) return jsonResponse({ success: false, message: "Invalid login credentials" });
+
+  return jsonResponse({ success: true, role: userRow[roleIndex] });
+}
+
+// ================== JSON RESPONSE HELPER ==================
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
