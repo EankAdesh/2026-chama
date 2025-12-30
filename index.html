@@ -1,76 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chama Offline | Login</title>
-<link rel="stylesheet" href="css/style.css">
+<title>Chama Prototype</title>
 </head>
 <body>
-<div class="container">
-  <h2>Chama Offline System</h2>
-  <div class="auth-box">
-    <h3>Login</h3>
-    <input id="loginEmail" type="email" placeholder="Email">
-    <input id="loginPassword" type="password" placeholder="Password">
-    <button onclick="login()">Login</button>
+<h2>Prototype Chama System</h2>
 
-    <h3>Register</h3>
-    <input id="regEmail" type="email" placeholder="Email">
-    <input id="regPassword" type="password" placeholder="Password">
-    <select id="role">
-      <option value="admin">Admin</option>
-      <option value="member">Member</option>
-    </select>
-    <button onclick="register()">Register</button>
-  </div>
-</div>
+<h3>Register</h3>
+<input id="regEmail" placeholder="Email">
+<input id="regPassword" placeholder="Password">
+<select id="role">
+  <option value="admin">Admin</option>
+  <option value="member">Member</option>
+</select>
+<button onclick="register()">Register</button>
+
+<h3>Login</h3>
+<input id="loginEmail" placeholder="Email">
+<input id="loginPassword" placeholder="Password">
+<button onclick="login()">Login</button>
 
 <script>
 const API = "/exec";
 
-// ===== REGISTER =====
-function register() {
-  const email = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPassword').value.trim();
-  const role = document.getElementById('role').value;
+function register(){
+  const email=document.getElementById("regEmail").value;
+  const password=document.getElementById("regPassword").value;
+  const role=document.getElementById("role").value;
 
-  if(!email || !password) { alert("Email and password required"); return; }
-
-  fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  fetch(API,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ sheet:"Users", action:"register", email, password, role })
   })
-  .then(res => res.json())
-  .then(data => {
-    if(data.success){
-      alert("Registered successfully! Please login.");
-      document.getElementById('regEmail').value = "";
-      document.getElementById('regPassword').value = "";
-    } else alert(data.message || "Registration failed");
-  })
-  .catch(err => alert("Error: " + err.message));
+  .then(r=>r.json())
+  .then(d=>alert(d.success ? "Registered! Login now." : d.message))
+  .catch(e=>alert("Error: "+e.message));
 }
 
-// ===== LOGIN =====
-function login() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value.trim();
-  if(!email || !password){ alert("Email and password required"); return; }
+function login(){
+  const email=document.getElementById("loginEmail").value;
+  const password=document.getElementById("loginPassword").value;
 
-  fetch(API, {
+  fetch(API,{
     method:"POST",
-    headers: { "Content-Type": "application/json" },
+    headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ sheet:"Users", action:"login", email, password })
   })
-  .then(res => res.json())
-  .then(data => {
-    if(!data.success){ alert(data.message || "Invalid login credentials"); return; }
-    localStorage.setItem("currentUser", JSON.stringify(data.user));
-    window.location.href = "Dashboard.html";
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.success){
+      localStorage.setItem("user", JSON.stringify(d.user));
+      window.location.href="dashboard.html";
+    } else alert(d.message);
   })
-  .catch(err => alert("Error: " + err.message));
+  .catch(e=>alert("Error: "+e.message));
 }
 </script>
 </body>
