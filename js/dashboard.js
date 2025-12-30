@@ -1,10 +1,13 @@
+// ===== CONFIG =====
 const API = "https://script.google.com/macros/s/AKfycby65QtyNl1PV0k0R_dk3bg17S5kCa9tiWmyl7C2eOSJBU_a1Gzg2k7tbet2m8YTu9aKlw/exec";
+const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
+
 let chart, memberChart;
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser'));
 if (!currentUser) {
   alert("Please login first");
-  window.location.href="index.html";
+  window.location.href = "index.html";
 } else {
   const userRoleEl = document.getElementById('userRole');
   if (userRoleEl) userRoleEl.innerText = `Welcome, ${currentUser.email} (${currentUser.role})`;
@@ -14,42 +17,42 @@ if (!currentUser) {
   }
 }
 
-// Fetch list of items from a sheet
+// ===== FETCH SHEET =====
 async function fetchSheet(sheet) {
   try {
-    const res = await fetch(API, {
-      method:"POST",
+    const res = await fetch(CORS_PROXY + API, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sheet, action:"list" })
+      body: JSON.stringify({ sheet, action: "list" })
     });
     const data = await res.json();
-    return Array.isArray(data.items)? data.items : [];
-  } catch(err) {
+    return Array.isArray(data.items) ? data.items : [];
+  } catch (err) {
     console.error(err);
     return [];
   }
 }
 
-// Add a row to a sheet
+// ===== ADD ITEM =====
 async function addSheetItem(sheet, obj) {
   try {
-    const res = await fetch(API, {
-      method:"POST",
+    const res = await fetch(CORS_PROXY + API, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sheet, action:"add", ...obj })
+      body: JSON.stringify({ sheet, action: "add", ...obj })
     });
     const data = await res.json();
     return data;
-  } catch(err) {
+  } catch (err) {
     console.error(err);
-    return { success:false, message:"Network error" };
+    return { success: false, message: "Network error" };
   }
 }
 
-// Populate dropdowns with member emails
+// ===== POPULATE MEMBERS =====
 async function populateMembers() {
   const users = await fetchSheet("Users");
-  const members = users.filter(u=>u?.role==="member");
+  const members = users.filter(u => u?.role === "member");
   const select = document.getElementById('memberSelect'),
         loanSelect = document.getElementById('loanEmail');
   if (!select || !loanSelect) return;
@@ -60,21 +63,21 @@ async function populateMembers() {
   });
 }
 
-// Update summary values and alerts
+// ===== UPDATE SUMMARY =====
 async function updateSummary() {
   const users = await fetchSheet("Users") || [];
-  const members = users.filter(u=>u?.role==="member");
+  const members = users.filter(u => u?.role === "member");
   const contributions = await fetchSheet("Contributions") || [];
   const penalties = await fetchSheet("Penalties") || [];
-  const now = new Date(), month = now.getMonth()+1, year = now.getFullYear();
+  const now = new Date(), month = now.getMonth() + 1, year = now.getFullYear();
 
   const totalC = contributions
-    .filter(c=>c?.date && new Date(c.date).getMonth()+1===month && new Date(c.date).getFullYear()===year)
-    .reduce((a,b)=>a+Number(b.amount||0),0);
+    .filter(c => c?.date && new Date(c.date).getMonth() + 1 === month && new Date(c.date).getFullYear() === year)
+    .reduce((a, b) => a + Number(b.amount || 0), 0);
 
   const totalP = penalties
-    .filter(p=>p?.month===month && p?.year===year)
-    .reduce((a,b)=>a+Number(b.amount||0),0);
+    .filter(p => p?.month == month && p?.year == year)
+    .reduce((a, b) => a + Number(b.amount || 0), 0);
 
   document.getElementById('cardTotalContributions') &&
     (document.getElementById('cardTotalContributions').innerText = `KES ${totalC}`);
@@ -88,7 +91,7 @@ async function updateSummary() {
 
   members.forEach(m => {
     const paid = contributions.some(c => c?.email === m.email &&
-      new Date(c.date).getMonth()+1 === month &&
+      new Date(c.date).getMonth() + 1 === month &&
       new Date(c.date).getFullYear() === year);
     if (!paid) {
       missed++;
@@ -112,8 +115,8 @@ async function updateSummary() {
     (document.getElementById('cardMissedMembers').innerText = missed);
 }
 
-// Init
-window.onload = function() {
+// ===== INIT =====
+window.onload = function () {
   populateMembers();
   updateSummary();
 };
