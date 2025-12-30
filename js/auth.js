@@ -1,4 +1,4 @@
-const API = "YOUR_DEPLOYED_SCRIPT_URL";
+const API = "https://script.google.com/macros/s/AKfycby65QtyNl1PV0k0R_dk3bg17S5kCa9tiWmyl7C2eOSJBU_a1Gzg2k7tbet2m8YTu9aKlw/exec";
 
 // ===== REGISTER =====
 function register() {
@@ -6,19 +6,32 @@ function register() {
   const password = document.getElementById('regPassword').value.trim();
   const role = document.getElementById('role').value;
 
-  if(!email || !password) { alert("Email and password required"); return; }
+  if (!email || !password) {
+    alert("Email and password required");
+    return;
+  }
 
-  fetch(API,{
-    method:"POST",
-    body: JSON.stringify({ sheet:"Users", action:"register", email, password, role })
-  }).then(res=>res.json())
-    .then(data=>{
-      if(data.success){ 
+  fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "register",
+      email,
+      password,
+      role
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
         alert("Registered successfully! Please login.");
-        document.getElementById('regEmail').value="";
-        document.getElementById('regPassword').value="";
-      } else alert(data.message || "Registration failed");
-    }).catch(err=>alert("Error: "+err));
+        document.getElementById('regEmail').value = "";
+        document.getElementById('regPassword').value = "";
+      } else {
+        alert(data.message || "Registration failed");
+      }
+    })
+    .catch(err => alert("Error: " + err.message));
 }
 
 // ===== LOGIN =====
@@ -26,22 +39,34 @@ function login() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value.trim();
 
-  if(!email || !password){ alert("Email and password required"); return; }
+  if (!email || !password) {
+    alert("Email and password required");
+    return;
+  }
 
-  fetch(API,{
-    method:"POST",
-    body: JSON.stringify({ sheet:"Users", action:"login", email, password })
-  }).then(res=>res.json())
-    .then(data=>{
-      if(data.success){
-        localStorage.setItem("currentUser", JSON.stringify({ email, role:data.role }));
-        window.location.href="dashboard.html";
-      } else alert(data.message || "Invalid login credentials");
-    }).catch(err=>alert("Error: "+err));
+  fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "login",
+      email,
+      password
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) {
+        alert(data.message || "Invalid login credentials");
+        return;
+      }
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      window.location.href = "dashboard.html";
+    })
+    .catch(err => alert("Error: " + err.message));
 }
 
 // ===== LOGOUT =====
 function logout() {
   localStorage.removeItem("currentUser");
-  window.location.href="index.html";
+  window.location.href = "index.html";
 }
