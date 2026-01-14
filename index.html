@@ -26,6 +26,27 @@
   </div>
 </div>
 
-<script src="js/auth.js"></script>
+<script src="<script>
+const API_URL = "PASTE_WEB_APP_URL_HERE";
+
+function login() {
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "login",
+      phone: phone.value,
+      pin: pin.value
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.success) return alert("Login failed");
+    sessionStorage.setItem("user", JSON.stringify(d));
+    location.href = d.role === "ADMIN" ? "admin.html" : "member.html";
+  });
+}
+</script>
+"></script>
 </body>
 </html>
+
