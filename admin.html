@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard | Chama</title>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --green-dark:#0f5132;
+  --green:#198754;
+  --green-light:#d1e7dd;
+  --bg:#f5f6f8;
+}
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+body{margin:0;background:var(--bg)}
+.container{display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{
+  width:230px;
+  background:var(--green-dark);
+  color:#fff;
+  padding:20px 10px;
+  position:fixed;
+  height:100%;
+  overflow-y:auto;
+}
+.sidebar h2{text-align:center;margin-bottom:25px}
+.sidebar a{
+  display:block;
+  padding:12px 15px;
+  color:#fff;
+  text-decoration:none;
+  border-radius:6px;
+  margin-bottom:5px;
+}
+.sidebar a i{margin-right:10px}
+.sidebar a.active,.sidebar a:hover{background:var(--green)}
+
+/* Main */
+.main{margin-left:230px;padding:20px;width:100%}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.toggle-btn{display:none;font-size:22px;cursor:pointer}
+
+/* Cards */
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:15px;
+  margin-bottom:25px;
+}
+.card{
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.card h3{margin:0;color:#555;font-size:14px}
+.card p{margin:10px 0 0;font-size:26px;color:var(--green);font-weight:bold}
+
+/* Sections */
+.section{display:none}
+.section.active{display:block}
+
+/* Boxes */
+.box{
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  margin-bottom:25px;
+}
+
+/* Tables */
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ccc;padding:10px;text-align:left}
+th{background:var(--green-light)}
+
+/* Buttons */
+button{
+  background:var(--green);
+  color:#fff;
+  border:none;
+  padding:6px 10px;
+  border-radius:5px;
+  cursor:pointer;
+}
+button.red{background:#dc3545}
+button.gray{background:#6c757d}
+
+/* Mobile */
+@media(max-width:768px){
+  .sidebar{left:-240px;transition:.3s}
+  .sidebar.show{left:0}
+  .main{margin-left:0}
+  .toggle-btn{display:block}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <h2>CHAMA</h2>
+  <a class="active" onclick="showSection('dashboard')"><i class="fa fa-home"></i>Dashboard</a>
+  <a onclick="showSection('members')"><i class="fa fa-users"></i>Members</a>
+  <a onclick="showSection('contributions')"><i class="fa fa-coins"></i>Contributions</a>
+  <a onclick="showSection('loans')"><i class="fa fa-money-bill"></i>Loans</a>
+  <a onclick="showSection('penalties')"><i class="fa fa-exclamation-triangle"></i>Penalties</a>
+  <a onclick="showSection('reports')"><i class="fa fa-chart-bar"></i>Reports</a>
+  <a onclick="showSection('messages')"><i class="fa fa-envelope"></i>Messages</a>
+  <a onclick="showSection('activitylog')"><i class="fa fa-clipboard-list"></i>Activity Log</a>
+  <a onclick="showSection('settings')"><i class="fa fa-cog"></i>Settings</a>
+  <a><i class="fa fa-sign-out-alt"></i>Logout</a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="header">
+    <span class="toggle-btn" onclick="toggleSidebar()"><i class="fa fa-bars"></i></span>
+    <h1>Admin Dashboard</h1>
+  </div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="section active">
+  <div class="cards">
+    <div class="card"><h3>Total Members</h3><p>6</p></div>
+    <div class="card"><h3>This Month Contributions</h3><p>KES 24,000</p></div>
+    <div class="card"><h3>Active Loans</h3><p>3</p></div>
+    <div class="card"><h3>Pending Loan Requests</h3><p>1</p></div>
+  </div>
+
+  <div class="box"><canvas id="contribChart"></canvas></div>
+  <div class="box"><canvas id="loanChart"></canvas></div>
+</div>
+
+<!-- MEMBERS -->
+<div id="members" class="section">
+  <div class="box">
+    <h3>Members</h3>
+    <table>
+      <tr><th>Name</th><th>Phone</th><th>Status</th></tr>
+      <tr><td>John Doe</td><td>0712345678</td><td>Active</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- CONTRIBUTIONS -->
+<div id="contributions" class="section">
+  <div class="box">
+    <h3>Record Contribution</h3>
+    <input placeholder="Member"><br><br>
+    <input placeholder="Amount"><br><br>
+    <button>Save Contribution</button>
+  </div>
+  <div class="box">
+    <h3>Contribution History</h3>
+    <table>
+      <tr><th>Member</th><th>Amount</th><th>Month</th><th>Date</th></tr>
+      <tr><td>John Doe</td><td>KES 2000</td><td>August</td><td>12 Aug</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- LOANS -->
+<div id="loans" class="section">
+  <div class="box">
+    <h3>Loans</h3>
+    <table>
+      <tr><th>Member</th><th>Amount</th><th>Status</th><th>Action</th></tr>
+      <tr>
+        <td>Mary Jane</td><td>KES 10,000</td><td>PENDING</td>
+        <td><button>Approve</button> <button class="red">Reject</button></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- PENALTIES -->
+<div id="penalties" class="section">
+  <div class="box">
+    <h3>Penalties</h3>
+    <table>
+      <tr><th>Member</th><th>Reason</th><th>Amount</th><th>Status</th></tr>
+      <tr><td>Mary Jane</td><td>Late payment</td><td>KES 500</td><td>UNPAID</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div id="reports" class="section">
+  <div class="box"><canvas id="reportChart"></canvas></div>
+</div>
+
+<!-- MESSAGES -->
+<div id="messages" class="section">
+  <div class="box">
+    <h3>Loan Defaulters</h3>
+    <table>
+      <tr><th>Member</th><th>Balance</th><th>Action</th></tr>
+      <tr><td>John Doe</td><td>KES 8000</td><td><button>Send Reminder</button></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ACTIVITY LOG -->
+<div id="activitylog" class="section">
+  <div class="box">
+    <h3>Activity Log</h3>
+    <table>
+      <tr><th>Date</th><th>User</th><th>Action</th></tr>
+      <tr><td>12 Aug</td><td>Admin</td><td>Recorded contribution</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="section">
+  <div class="box">
+    <h3>Settings</h3>
+    <label><input type="checkbox"> Allow Loan Applications</label>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("show");
+}
+function showSection(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".sidebar a").forEach(a=>a.classList.remove("active"));
+  event.target.classList.add("active");
+}
+new Chart(contribChart,{type:'bar',data:{labels:["Jan","Feb","Mar"],datasets:[{data:[8000,12000,24000],backgroundColor:"#198754"}]}});
+new Chart(loanChart,{type:'bar',data:{labels:["Issued","Repaid"],datasets:[{data:[120000,70000],backgroundColor:["#198754","#6c757d"]}]}});
+new Chart(reportChart,{type:'line',data:{labels:["Jan","Feb","Mar"],datasets:[{data:[8000,12000,24000],borderColor:"#198754"}]}});
+</script>
+
+</body>
+</html>
